@@ -51,6 +51,7 @@ struct bar
     CGContextRef context;
     CFRunLoopSourceRef power_source;
     CFRunLoopTimerRef refresh_timer;
+    CFRunLoopTimerRef segment_timer;
     CGRect frame;
 };
 

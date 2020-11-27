@@ -12,7 +12,14 @@ static POWER_CALLBACK(power_handler)
 
 static TIMER_CALLBACK(timer_handler)
 {
+
     struct event *event = event_create(&g_event_loop, BAR_REFRESH, NULL);
+    event_loop_post(&g_event_loop, event);
+}
+
+static TIMER_CALLBACK(segment_handler)
+{
+    struct event *event = event_create(&g_event_loop, SEGMENT_REFRESH, NULL);
     event_loop_post(&g_event_loop, event);
 }
 
@@ -211,6 +218,41 @@ static int mission_control_index(uint64_t sid)
     return desktop_cnt;
 }
 
+static char* runCommandAndReturn(char *command)
+{
+    FILE *fp;
+    char path[2048];
+    char* string;
+
+    /* Open the command for reading. */
+    fp = popen(command, "r");
+    if (fp == NULL) {
+        printf("Failed to run command\n" );
+        exit(1);
+    }
+    /* Read the output a line at a time - output it. */
+    while (fgets(path, sizeof(path), fp) != NULL) {
+        string = string_copy(path);
+    }
+    /* close */
+    pclose(fp);
+    return string;
+}
+
+static void exec_segment_file(struct bar_manager *bar_manager)
+{
+    char* segment1;
+    char* segment2;
+    if (strlen(bar_manager->segment1_command) >= 0) {
+        segment1 = runCommandAndReturn(string_copy(bar_manager->segment1_command));
+        bar_manager_set_segment1_text(bar_manager, segment1);
+    }
+    if (strlen(bar_manager->segment2_command) >= 0) {
+        segment2 = runCommandAndReturn(string_copy(bar_manager->segment2_command));
+        bar_manager_set_segment2_text(bar_manager, segment2);
+    }
+}
+
 void bar_refresh(struct bar *bar)
 {
     SLSDisableUpdate(g_connection);
@@ -249,7 +291,7 @@ void bar_refresh(struct bar *bar)
             }
             bar_draw_line(bar, space_line, pos.x, pos.y);
 
-            bar_left_final_item_x = pos.x + space_line.bounds.size.width + 10;
+            bar_left_final_item_x = pos.x + space_line.bounds.size.width + 30;
         }
 
         free(space_list);
@@ -259,7 +301,7 @@ void bar_refresh(struct bar *bar)
     // BAR RIGHT
     //
 
-    // This is used to calculate overlap for the cetner bar.
+    // This is used to calculate overlap for the center bar.
     // It is updated to represent the X position of the first item, depending on what's displayed.
     int bar_right_first_item_x = bar->frame.size.width - 10;
     time_t rawtime;
@@ -319,6 +361,20 @@ void bar_refresh(struct bar *bar)
       bar_draw_line(bar, dnd_icon, di_pos.x, di_pos.y);
     }
 
+    // SEGMENTS
+
+    struct bar_line segment1_line = bar_prepare_line(g_bar_manager.t_font, g_bar_manager.segment1_text, g_bar_manager.foreground_color);
+    CGPoint s1_pos = bar_align_line(bar, segment1_line, ALIGN_RIGHT, ALIGN_CENTER);
+    s1_pos.x = bar_right_first_item_x - (segment1_line.bounds.size.width + g_bar_manager.spacing_right);
+    bar_draw_line(bar, segment1_line, s1_pos.x, s1_pos.y);
+    bar_right_first_item_x = s1_pos.x;
+
+    struct bar_line segment2_line = bar_prepare_line(g_bar_manager.t_font, g_bar_manager.segment2_text, g_bar_manager.foreground_color);
+    CGPoint s2_pos = bar_align_line(bar, segment2_line, ALIGN_LEFT, ALIGN_CENTER);
+    s2_pos.x = bar_left_final_item_x;
+    bar_draw_line(bar, segment2_line, s2_pos.x, s2_pos.y);
+    bar_left_final_item_x = s2_pos.x + (segment2_line.bounds.size.width + g_bar_manager.spacing_right);
+
 
     // BAR CENTER
     char *title = focused_window_title();
@@ -327,7 +383,7 @@ void bar_refresh(struct bar *bar)
       int overlap_right = 0;
 
       struct bar_line title_line = bar_prepare_line(g_bar_manager.t_font, title, g_bar_manager.foreground_color);
-      CGPoint pos = bar_align_line(bar, title_line, ALIGN_CENTER, ALIGN_CENTER);
+      CGPoint pos = bar_align_line(bar, title_line, ALIGN_LEFT, ALIGN_CENTER);
 
       if (bar_left_final_item_x >= pos.x) {
 	overlap_left = bar_left_final_item_x - pos.x;
@@ -357,7 +413,7 @@ void bar_refresh(struct bar *bar)
 	}
       }
 
-      bar_draw_line(bar, title_line, pos.x, pos.y);
+      bar_draw_line(bar, title_line, bar_left_final_item_x + 10.0f, pos.y);
     free_title:
       bar_destroy_line(title_line);
       free(title);
@@ -381,10 +437,13 @@ static CGPoint bar_create_frame(struct bar *bar, CFTypeRef *frame_region)
     char *btm = "bottom";
     CGFloat display_bottom = CGRectGetMaxY(bounds);
     if (strcmp(g_bar_manager.position, btm) == 0) {
-      origin.y = display_bottom - g_bar_manager.height;
+      origin.y = display_bottom - g_bar_manager.height - g_bar_manager.offset;
+    } else {
+        origin.y += g_bar_manager.offset;
     }
+    origin.x += g_bar_manager.offset;
 
-    bar->frame = (CGRect) {{0, 0},{bounds.size.width, g_bar_manager.height}};
+    bar->frame = (CGRect) {{0, 0},{bounds.size.width - (g_bar_manager.offset * 2), g_bar_manager.height}};
     CGSNewRegionWithRect(&bar->frame, frame_region);
 
     return origin;
@@ -436,11 +495,14 @@ struct bar *bar_create(uint32_t did)
     bar->context = SLWindowContextCreate(g_connection, bar->id, 0);
 
     int refresh_frequency = 5;
+    int segment_frequency = 10;
     bar->power_source = IOPSNotificationCreateRunLoopSource(power_handler, NULL);
     bar->refresh_timer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + refresh_frequency, refresh_frequency, 0, 0, timer_handler, NULL);
+    bar->segment_timer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + segment_frequency, segment_frequency, 0, 0, segment_handler, NULL);
 
     CFRunLoopAddSource(CFRunLoopGetMain(), bar->power_source, kCFRunLoopCommonModes);
     CFRunLoopAddTimer(CFRunLoopGetMain(), bar->refresh_timer, kCFRunLoopCommonModes);
+    CFRunLoopAddTimer(CFRunLoopGetMain(), bar->segment_timer, kCFRunLoopCommonModes);
 
     bar_refresh(bar);
 
@@ -454,6 +516,9 @@ void bar_destroy(struct bar *bar)
 
     CFRunLoopRemoveTimer(CFRunLoopGetMain(), bar->refresh_timer, kCFRunLoopCommonModes);
     CFRunLoopTimerInvalidate(bar->refresh_timer);
+
+    CFRunLoopRemoveTimer(CFRunLoopGetMain(), bar->segment_timer, kCFRunLoopCommonModes);
+    CFRunLoopTimerInvalidate(bar->segment_timer);
 
     CGContextRelease(bar->context);
     SLSReleaseWindow(g_connection, bar->id);

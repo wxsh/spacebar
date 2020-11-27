@@ -211,6 +211,12 @@ static EVENT_CALLBACK(EVENT_HANDLER_BAR_REFRESH)
     return EVENT_SUCCESS;
 }
 
+static EVENT_CALLBACK(EVENT_HANDLER_SEGMENT_REFRESH)
+{
+    bar_manager_refresh_segments(&g_bar_manager);
+    return EVENT_SUCCESS;
+}
+
 static EVENT_CALLBACK(EVENT_HANDLER_DAEMON_MESSAGE)
 {
     FILE *rsp = fdopen(param1, "w");

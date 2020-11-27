@@ -214,6 +214,32 @@ void bar_manager_set_position(struct bar_manager *bar_manager, char *pos)
   bar_manager_resize(bar_manager);
 }
 
+void bar_manager_set_segment1_text(struct bar_manager *bar_manager, char *text)
+{
+    bar_manager->segment1_text = text;
+}
+
+void bar_manager_set_segment2_text(struct bar_manager *bar_manager, char *text)
+{
+    bar_manager->segment2_text = text;
+}
+
+void bar_manager_set_segment1_command(struct bar_manager *bar_manager, char *command)
+{
+    bar_manager->segment1_command = command;
+}
+
+void bar_manager_set_segment2_command(struct bar_manager *bar_manager, char *command)
+{
+    bar_manager->segment2_command = command;
+}
+
+void bar_manager_set_offset(struct bar_manager *bar_manager, uint32_t offset)
+{
+    bar_manager->offset = offset;
+    bar_manager_resize(bar_manager);
+}
+
 void bar_manager_set_height(struct bar_manager *bar_manager, uint32_t height)
 {
   bar_manager->height = height;
@@ -246,6 +272,11 @@ void bar_manager_refresh(struct bar_manager *bar_manager)
         bar_refresh(bar_manager->bars[i]);
 }
 
+void bar_manager_refresh_segments(struct bar_manager *bar_manager)
+{
+    exec_segment_file(bar_manager);
+}
+
 void bar_manager_resize(struct bar_manager *bar_manager)
 {
     for (int i = 0; i < bar_manager->bar_count; ++i)
@@ -274,6 +305,11 @@ void bar_manager_init(struct bar_manager *bar_manager)
     bar_manager_set_power_strip(bar_manager, NULL);
     bar_manager_set_dnd_icon(bar_manager, string_copy(""));
     bar_manager_set_dnd_icon_color(bar_manager, 0xffa8a8a8);
+    bar_manager_set_segment1_text(bar_manager, string_copy(""));
+    bar_manager_set_segment2_text(bar_manager, string_copy(""));
+    bar_manager_set_offset(bar_manager, 0);
+    bar_manager_set_segment1_command(bar_manager, string_copy(""));
+    bar_manager_set_segment2_command(bar_manager, string_copy(""));
 }
 
 void bar_manager_begin(struct bar_manager *bar_manager)

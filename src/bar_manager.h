@@ -16,6 +16,11 @@ struct bar_manager
   char *_space_icon;
   char *_dnd_icon;
   char *position;
+  char *segment1_text;
+  char *segment2_text;
+  char *segment1_command;
+  char *segment2_command;
+  uint32_t offset;
   uint32_t height;
   uint32_t spacing_left;
   uint32_t spacing_right;
@@ -33,6 +38,8 @@ struct bar_manager
   struct bar_line battr_icon;
   struct bar_line power_icon;
   struct bar_line dnd_icon;
+  struct bar_line segment1;
+  struct bar_line segment2;
 };
 
 void bar_manager_set_foreground_color(struct bar_manager *bar_manager, uint32_t color);
@@ -54,9 +61,16 @@ void bar_manager_set_position(struct bar_manager *bar_manager, char *pos);
 void bar_manager_set_height(struct bar_manager *bar_manager, uint32_t height);
 void bar_manager_set_spacing_left(struct bar_manager *bar_manager, uint32_t spacing);
 void bar_manager_set_spacing_right(struct bar_manager *bar_manager, uint32_t spacing);
+void bar_manager_set_segment1_text(struct bar_manager *bar_manager, char *text);
+void bar_manager_set_segment2_text(struct bar_manager *bar_manager, char *text);
+void bar_manager_set_segment1_command(struct bar_manager *bar_manager, char *command);
+void bar_manager_set_segment2_command(struct bar_manager *bar_manager, char *command);
+
+void bar_manager_set_offset(struct bar_manager *bar_manager, uint32_t offset);
 
 void bar_manager_display_changed(struct bar_manager *bar_manager);
 void bar_manager_refresh(struct bar_manager *bar_manager);
+void bar_manager_refresh_segments(struct bar_manager *bar_manager);
 void bar_manager_resize(struct bar_manager *bar_manager);
 void bar_manager_begin(struct bar_manager *bar_manager);
 void bar_manager_init(struct bar_manager *bar_manager);

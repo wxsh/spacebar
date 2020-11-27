@@ -9,6 +9,7 @@ extern struct bar_manager g_bar_manager;
 extern bool g_verbose;
 
 #define DOMAIN_CONFIG  "config"
+#define DOMAIN_UPDATE  "update"
 
 /* --------------------------------DOMAIN CONFIG-------------------------------- */
 #define COMMAND_CONFIG_DEBUG_OUTPUT            "debug_output"
@@ -31,13 +32,19 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_BAR_HEIGHT              "height"
 #define COMMAND_CONFIG_BAR_SPACING_LEFT        "spacing_left"
 #define COMMAND_CONFIG_BAR_SPACING_RIGHT       "spacing_right"
+#define COMMAND_CONFIG_BAR_OFFSET              "offset"
+#define COMMAND_CONFIG_SEGMENT1_COMMAND        "segment1"
+#define COMMAND_CONFIG_SEGMENT2_COMMAND        "segment2"
+
+/* --------------------------------UPDATE MESSAGES FOR CUSTOM SEGMENTS -------------------------------- */
+#define COMMAND_UPDATE_SEGMENT1            "segment1"
+#define COMMAND_UPDATE_SEGMENT2            "segment2"
 
 /* --------------------------------COMMON ARGUMENTS----------------------------- */
 #define ARGUMENT_COMMON_VAL_ON     "on"
 #define ARGUMENT_COMMON_VAL_OFF    "off"
 
-static bool token_equals(struct token token, char *match)
-{
+static bool token_equals(struct token token, char *match) {
     char *at = match;
     for (int i = 0; i < token.length; ++i, ++at) {
         if ((*at == 0) || (token.text[i] != *at)) {
@@ -47,13 +54,11 @@ static bool token_equals(struct token token, char *match)
     return *at == 0;
 }
 
-static bool token_is_valid(struct token token)
-{
+static bool token_is_valid(struct token token) {
     return token.text && token.length > 0;
 }
 
-static char *token_to_string(struct token token)
-{
+static char *token_to_string(struct token token) {
     char *result = malloc(token.length + 1);
     if (!result) return NULL;
 
@@ -62,8 +67,7 @@ static char *token_to_string(struct token token)
     return result;
 }
 
-static uint32_t token_to_uint32t(struct token token)
-{
+static uint32_t token_to_uint32t(struct token token) {
     uint32_t result = 0;
     char buffer[token.length + 1];
     memcpy(buffer, token.text, token.length);
@@ -72,8 +76,7 @@ static uint32_t token_to_uint32t(struct token token)
     return result;
 }
 
-static struct token get_token(char **message)
-{
+static struct token get_token(char **message) {
     struct token token;
 
     token.text = *message;
@@ -91,8 +94,7 @@ static struct token get_token(char **message)
     return token;
 }
 
-static void daemon_fail(FILE *rsp, char *fmt, ...)
-{
+static void daemon_fail(FILE *rsp, char *fmt, ...) {
     if (!rsp) return;
 
     fprintf(rsp, FAILURE_MESSAGE);
@@ -112,9 +114,8 @@ static void daemon_fail(FILE *rsp, char *fmt, ...)
                     view_flush(view); \
                     }
 
-static void handle_domain_config(FILE *rsp, struct token domain, char *message)
-{
-    struct token command  = get_token(&message);
+static void handle_domain_config(FILE *rsp, struct token domain, char *message) {
+    struct token command = get_token(&message);
 
     if (token_equals(command, COMMAND_CONFIG_DEBUG_OUTPUT)) {
         struct token value = get_token(&message);
@@ -125,7 +126,8 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
             g_verbose = true;
         } else {
-            daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                        value.text, command.length, command.text, domain.length, domain.text);
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_TEXT_FONT)) {
         int length = strlen(message);
@@ -150,7 +152,8 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             if (color) {
                 bar_manager_set_background_color(&g_bar_manager, color);
             } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
             }
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_FOREGROUND)) {
@@ -162,7 +165,8 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             if (color) {
                 bar_manager_set_foreground_color(&g_bar_manager, color);
             } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
             }
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_SPACE_STRIP)) {
@@ -182,7 +186,8 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
         }
         bar_manager_set_power_strip(&g_bar_manager, icon_strip);
         if (buf_len(g_bar_manager._power_icon_strip) != 2) {
-            daemon_fail(rsp, "value for '%.*s' must contain exactly two symbols separated by whitespace.\n", command.length, command.text);
+            daemon_fail(rsp, "value for '%.*s' must contain exactly two symbols separated by whitespace.\n",
+                        command.length, command.text);
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_SPACE_ICON)) {
         struct token token = get_token(&message);
@@ -214,105 +219,155 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             if (color) {
                 bar_manager_set_space_icon_color(&g_bar_manager, color);
             } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
             }
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_BATTERY_ICON_COLOR)) {
-      struct token value = get_token(&message);
-      if (!token_is_valid(value)) {
-	fprintf(rsp, "0x%x\n", g_bar_manager.battery_icon_color.p);
-      } else {
-	uint32_t color = token_to_uint32t(value);
-	if (color) {
-	  bar_manager_set_battery_icon_color(&g_bar_manager, color);
-	} else {
-	  daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-	}
-      }
+        struct token value = get_token(&message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "0x%x\n", g_bar_manager.battery_icon_color.p);
+        } else {
+            uint32_t color = token_to_uint32t(value);
+            if (color) {
+                bar_manager_set_battery_icon_color(&g_bar_manager, color);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
+            }
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_POWER_ICON_COLOR)) {
-      struct token value = get_token(&message);
-      if (!token_is_valid(value)) {
-	fprintf(rsp, "0x%x\n", g_bar_manager.power_icon_color.p);
-      } else {
-	uint32_t color = token_to_uint32t(value);
-	if (color) {
-	  bar_manager_set_power_icon_color(&g_bar_manager, color);
-	} else {
-	  daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-	}
-      }
+        struct token value = get_token(&message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "0x%x\n", g_bar_manager.power_icon_color.p);
+        } else {
+            uint32_t color = token_to_uint32t(value);
+            if (color) {
+                bar_manager_set_power_icon_color(&g_bar_manager, color);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
+            }
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_CLOCK_ICON_COLOR)) {
-      struct token value = get_token(&message);
-      if (!token_is_valid(value)) {
-	fprintf(rsp, "0x%x\n", g_bar_manager.clock_icon_color.p);
-      } else {
-	uint32_t color = token_to_uint32t(value);
-	if (color) {
-	  bar_manager_set_clock_icon_color(&g_bar_manager, color);
-	} else {
-	  daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-	}
-      }
+        struct token value = get_token(&message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "0x%x\n", g_bar_manager.clock_icon_color.p);
+        } else {
+            uint32_t color = token_to_uint32t(value);
+            if (color) {
+                bar_manager_set_clock_icon_color(&g_bar_manager, color);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
+            }
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_DND_ICON_COLOR)) {
-      struct token value = get_token(&message);
-      if (!token_is_valid(value)) {
-	fprintf(rsp, "0x%x\n", g_bar_manager.dnd_icon_color.p);
-      } else {
-	uint32_t color = token_to_uint32t(value);
-	if (color) {
-	  bar_manager_set_dnd_icon_color(&g_bar_manager, color);
-	} else {
-	  daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-	}
-      }
+        struct token value = get_token(&message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "0x%x\n", g_bar_manager.dnd_icon_color.p);
+        } else {
+            uint32_t color = token_to_uint32t(value);
+            if (color) {
+                bar_manager_set_dnd_icon_color(&g_bar_manager, color);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length,
+                            value.text, command.length, command.text, domain.length, domain.text);
+            }
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_DND_ICON)) {
-      struct token token = get_token(&message);
-      if (!token_is_valid(token)) {
-	fprintf(rsp, "%s\n", g_bar_manager._dnd_icon ? g_bar_manager._dnd_icon : "");
-      } else {
-	bar_manager_set_dnd_icon(&g_bar_manager, token_to_string(token));
-      }
+        struct token token = get_token(&message);
+        if (!token_is_valid(token)) {
+            fprintf(rsp, "%s\n", g_bar_manager._dnd_icon ? g_bar_manager._dnd_icon : "");
+        } else {
+            bar_manager_set_dnd_icon(&g_bar_manager, token_to_string(token));
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_POSITION)) {
-      int length = strlen(message);
-      char * top = "top";
-      char * bottom = "bottom";
-      if (length <= 0) {
-	fprintf(rsp, "%s\n", g_bar_manager.position);
-      } else if ((strcmp(message,top) == 0) || (strcmp(message,bottom) == 0)) {
-	bar_manager_set_position(&g_bar_manager, string_copy(message));
-      } else {
-	daemon_fail(rsp, "value for '%.*s' must be either 'top' or 'bottom'.\n", command.length, command.text);
-      }
+        int length = strlen(message);
+        char *top = "top";
+        char *bottom = "bottom";
+        if (length <= 0) {
+            fprintf(rsp, "%s\n", g_bar_manager.position);
+        } else if ((strcmp(message, top) == 0) || (strcmp(message, bottom) == 0)) {
+            bar_manager_set_position(&g_bar_manager, string_copy(message));
+        } else {
+            daemon_fail(rsp, "value for '%.*s' must be either 'top' or 'bottom'.\n", command.length, command.text);
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_HEIGHT)) {
         struct token token = get_token(&message);
         if (!token_is_valid(token)) {
-	  fprintf(rsp, "%"PRIu32"\n", g_bar_manager.height ? g_bar_manager.height : 0);
+            // Used for yabai to get statusbar height - Should probably use a different command here
+            fprintf(rsp, "%"PRIu32"\n", (g_bar_manager.height ? g_bar_manager.height : 0) + (g_bar_manager.offset ? g_bar_manager.offset : 0));
         } else {
-	  bar_manager_set_height(&g_bar_manager, atoi(token_to_string(token)));
+            bar_manager_set_height(&g_bar_manager, atoi(token_to_string(token)));
         }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_SPACING_LEFT)) {
-      struct token token = get_token(&message);
-      if (!token_is_valid(token)) {
-	fprintf(rsp, "%"PRIu32"\n", g_bar_manager.spacing_left ? g_bar_manager.spacing_left : 0);
-      } else {
-	bar_manager_set_spacing_left(&g_bar_manager, atoi(token_to_string(token)));
-      }
+        struct token token = get_token(&message);
+        if (!token_is_valid(token)) {
+            fprintf(rsp, "%"PRIu32"\n", g_bar_manager.spacing_left ? g_bar_manager.spacing_left : 0);
+        } else {
+            bar_manager_set_spacing_left(&g_bar_manager, atoi(token_to_string(token)));
+        }
     } else if (token_equals(command, COMMAND_CONFIG_BAR_SPACING_RIGHT)) {
-      struct token token = get_token(&message);
-      if (!token_is_valid(token)) {
-	fprintf(rsp, "%"PRIu32"\n", g_bar_manager.spacing_right ? g_bar_manager.spacing_right : 0);
-      } else {
-	bar_manager_set_spacing_right(&g_bar_manager, atoi(token_to_string(token)));
-      }
+        struct token token = get_token(&message);
+        if (!token_is_valid(token)) {
+            fprintf(rsp, "%"PRIu32"\n", g_bar_manager.spacing_right ? g_bar_manager.spacing_right : 0);
+        } else {
+            bar_manager_set_spacing_right(&g_bar_manager, atoi(token_to_string(token)));
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_BAR_OFFSET)) {
+        struct token token = get_token(&message);
+        if (!token_is_valid(token)) {
+            fprintf(rsp, "%"PRIu32"\n", g_bar_manager.offset ? g_bar_manager.offset : 0);
+        } else {
+            bar_manager_set_offset(&g_bar_manager, atoi(token_to_string(token)));
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_SEGMENT1_COMMAND)) {
+        int length = strlen(message);
+        if (length <= 0) {
+            fprintf(rsp, "%s\n", g_bar_manager.segment1_command);
+        } else {
+            bar_manager_set_segment1_command(&g_bar_manager, string_copy(message));
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_SEGMENT2_COMMAND)) {
+        int length = strlen(message);
+        if (length <= 0) {
+            fprintf(rsp, "%s\n", g_bar_manager.segment2_command);
+        } else {
+            bar_manager_set_segment2_command(&g_bar_manager, string_copy(message));
+        }
     } else {
-      daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length,
+                    domain.text);
+    }
+}
+
+static void handle_update_message(FILE *rsp, struct token domain, char *message) {
+    struct token command = get_token(&message);
+
+    if (token_equals(command, COMMAND_UPDATE_SEGMENT1)) {
+        int length = strlen(message);
+        if (length <= 0) {
+            fprintf(rsp, "%s\n", g_bar_manager.segment1_text);
+        } else {
+            bar_manager_set_segment1_text(&g_bar_manager, string_copy(message));
+        }
+    } else if (token_equals(command, COMMAND_UPDATE_SEGMENT2)) {
+        int length = strlen(message);
+        if (length <= 0) {
+            fprintf(rsp, "%s\n", g_bar_manager.segment2_text);
+        } else {
+            bar_manager_set_segment2_text(&g_bar_manager, string_copy(message));
+        }
+    } else {
+        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length,
+                    domain.text);
     }
 }
 
 #undef VIEW_SET_PROPERTY
 
-struct selector
-{
+struct selector {
     struct token token;
     bool did_parse;
 
@@ -324,23 +379,22 @@ struct selector
     };
 };
 
-enum label_type
-{
+enum label_type {
     LABEL_SPACE,
 };
 
-void handle_message(FILE *rsp, char *message)
-{
+void handle_message(FILE *rsp, char *message) {
     struct token domain = get_token(&message);
     if (token_equals(domain, DOMAIN_CONFIG)) {
         handle_domain_config(rsp, domain, message);
+    } else if (token_equals(domain, DOMAIN_UPDATE)) {
+        handle_update_message(rsp, domain, message);
     } else {
         daemon_fail(rsp, "unknown domain '%.*s'\n", domain.length, domain.text);
     }
 }
 
-static SOCKET_DAEMON_HANDLER(message_handler)
-{
+static SOCKET_DAEMON_HANDLER(message_handler) {
     struct event *event = event_create_p1(&g_event_loop, DAEMON_MESSAGE, message, sockfd);
     event_loop_post(&g_event_loop, event);
 }
