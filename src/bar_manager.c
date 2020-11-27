@@ -274,7 +274,7 @@ void bar_manager_refresh(struct bar_manager *bar_manager)
 
 void bar_manager_refresh_segments(struct bar_manager *bar_manager)
 {
-    exec_segment_file(bar_manager);
+    run_segment_commands(bar_manager);
 }
 
 void bar_manager_resize(struct bar_manager *bar_manager)

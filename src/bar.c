@@ -222,24 +222,21 @@ static char* runCommandAndReturn(char *command)
 {
     FILE *fp;
     char path[2048];
-    char* string;
+    char* out;
 
-    /* Open the command for reading. */
     fp = popen(command, "r");
     if (fp == NULL) {
         printf("Failed to run command\n" );
         exit(1);
     }
-    /* Read the output a line at a time - output it. */
     while (fgets(path, sizeof(path), fp) != NULL) {
-        string = string_copy(path);
+        out = string_copy(path);
     }
-    /* close */
     pclose(fp);
-    return string;
+    return out;
 }
 
-static void exec_segment_file(struct bar_manager *bar_manager)
+static void run_segment_commands(struct bar_manager *bar_manager)
 {
     char* segment1;
     char* segment2;
