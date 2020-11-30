@@ -227,7 +227,7 @@ static char* runCommandAndReturn(char *command)
     fp = popen(command, "r");
     if (fp == NULL) {
         printf("Failed to run command\n" );
-        exit(1);
+        return string_copy("Error!");
     }
     while (fgets(path, sizeof(path), fp) != NULL) {
         out = string_copy(path);
@@ -240,13 +240,17 @@ static void run_segment_commands(struct bar_manager *bar_manager)
 {
     char* segment1;
     char* segment2;
-    if (strlen(bar_manager->segment1_command) >= 0) {
+    if (strlen(bar_manager->segment1_command) > 0) {
         segment1 = runCommandAndReturn(string_copy(bar_manager->segment1_command));
-        bar_manager_set_segment1_text(bar_manager, segment1);
+        if(strlen(segment1) > 0) {
+            bar_manager_set_segment1_text(bar_manager, segment1);
+        }
     }
-    if (strlen(bar_manager->segment2_command) >= 0) {
+    if (strlen(bar_manager->segment2_command) > 0) {
         segment2 = runCommandAndReturn(string_copy(bar_manager->segment2_command));
-        bar_manager_set_segment2_text(bar_manager, segment2);
+        if(strlen(segment2) > 0) {
+            bar_manager_set_segment2_text(bar_manager, segment2);
+        }
     }
 }
 
