@@ -232,6 +232,7 @@ static char* runCommandAndReturn(char *command)
     while (fgets(path, sizeof(path), fp) != NULL) {
         out = string_copy(path);
     }
+    if (strlen(out) <= 0) out = string_copy(" ");
     pclose(fp);
     return out;
 }
@@ -242,15 +243,11 @@ static void run_segment_commands(struct bar_manager *bar_manager)
     char* segment2;
     if (strlen(bar_manager->segment1_command) > 0) {
         segment1 = runCommandAndReturn(string_copy(bar_manager->segment1_command));
-        if(strlen(segment1) > 0) {
-            bar_manager_set_segment1_text(bar_manager, segment1);
-        }
+        bar_manager_set_segment1_text(bar_manager, segment1);
     }
     if (strlen(bar_manager->segment2_command) > 0) {
         segment2 = runCommandAndReturn(string_copy(bar_manager->segment2_command));
-        if(strlen(segment2) > 0) {
-            bar_manager_set_segment2_text(bar_manager, segment2);
-        }
+        bar_manager_set_segment2_text(bar_manager, segment2);
     }
 }
 
